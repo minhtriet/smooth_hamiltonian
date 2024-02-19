@@ -40,7 +40,7 @@ def get_isometry(A, N, d):
     return np.sum(list(get_hyperplane_basis(A, N, d)), 0)
 
 
-def walk(A, N):
+def W_before_swap(A, N):
     """
     Implement the W operator for unitary walk.
     TODO: please clarify whether qml.SWAP is sufficient for this 
@@ -49,6 +49,20 @@ def walk(A, N):
     d = np.linalg.matrix_rank(A, hermitian=True)
     T = get_isometry(A, N, d)
     return 2*(T @ np.conj(T)) - np.eye(4*N*N)
+
+
+def walk(A, wires):
+    """
+    Apply unitary walk on 2n+2 qubits -> C^{2**(2n+2)} vector
+    to obtain T_n chebyshev matrix polynomial on Left upper block.
+    """
+    assert len(wires) % 2 == 0 and len(wires) // 2 > 1
+
+    n = len(wires)//2 - 1
+    N = 2**n
+    qml.QubitUnitary(W_before_swap(A, N), wires=wires)
+    for i in range(n+1):
+        qml.SWAP(i, i+n)
 
 
 # Create a QNode
@@ -80,7 +94,7 @@ def circuit(A, f):
     # H = A/d, d is the d-sparse Hermitian matrix
     #
 
-    # Call W() to define the quantum walk (13)
+    # Call walk() to define the quantum walk (13)
 
     # LCU
     # Now we have Chebyshev series
