@@ -41,9 +41,15 @@ def get_isometry(A, N, d):
 
 
 def walk(A, N):
+    """
+    Implement the W operator for unitary walk.
+    TODO: please clarify whether qml.SWAP is sufficient for this 
+    or we need to implement it separately (or swapping between two copies once only?)
+    """
     d = np.linalg.matrix_rank(A, hermitian=True)
     T = get_isometry(A, N, d)
-    return 2*(T @ np.conj(T)) - np.eye(2N)
+    return 2*(T @ np.conj(T)) - np.eye(4*N*N)
+
 
 # Create a QNode
 @qml.qnode(dev)
@@ -83,11 +89,6 @@ def circuit(A, f):
 
 
     return qml.states()
-
-def W(_lambda: float,  ):
-    # define coeff
-    # define T, and U
-    pass
 
 # Initialize parameters
 A = [[0., 1.], [1., 0.]]
