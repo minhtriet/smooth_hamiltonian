@@ -15,6 +15,56 @@ def get_ket(j, N):
     ket[j] = 1
     return ket
 
+
+def get_hyperplane_term(j, A, N):
+    for k in np.nonzero(A[j]):
+        first_term = np.sqrt(np.conj(A[j][k]))*get_ket(k, N)
+        second_term = np.sqrt(1-np.abs(A[j][k]))*get_ket(k+N, N)
+        yield first_term + second_term
+
+
+def get_hyperplane_basis(A, N, d):
+    """
+    Define hyperplane basis to get Chebyshev polynomials on a quantum circuit.
+    We assume the matrix A is d-sparse https://faculty.ucmerced.edu/mhyang/course/eecs275/lectures/lecture26.pdf
+    """
+    for j in range(N):   # (33)
+        yield np.outer(
+            np.kron(get_ket(j, N), 1/np.sqrt(d)*sum(get_hyperplane_term(j, A, N))),
+            get_ket(j, N)
+        )
+
+
+def get_isometry(A, N, d):
+    """Define isometry T from the hyperplane basis."""
+    return np.sum(list(get_hyperplane_basis(A, N, d)), 0)
+
+
+def W_before_swap(A, N):
+    """
+    Implement the W operator for unitary walk.
+    TODO: please clarify whether qml.SWAP is sufficient for this 
+    or we need to implement it separately (or swapping between two copies once only?)
+    """
+    d = np.linalg.matrix_rank(A, hermitian=True)
+    T = get_isometry(A, N, d)
+    return 2*(T @ np.conj(T)) - np.eye(4*N*N)
+
+
+def walk(A, wires):
+    """
+    Apply unitary walk on 2n+2 qubits -> C^{2**(2n+2)} vector
+    to obtain T_n chebyshev matrix polynomial on Left upper block.
+    """
+    assert len(wires) % 2 == 0 and len(wires) // 2 > 1
+
+    n = len(wires)//2 - 1
+    N = 2**n
+    qml.QubitUnitary(W_before_swap(A, N), wires=wires)
+    for i in range(n+1):
+        qml.SWAP(i, i+n)
+
+
 # Create a QNode
 @qml.qnode(dev)
 def circuit(A, f):
@@ -36,14 +86,15 @@ def circuit(A, f):
             if A[j][k] != 0.:
                  sum_aij_nonzero += first_term + second_term
         get_ket(j, N) @ 1/np.sqrt(d)*sum_aij_nonzero   # (33)
-    # define isometry T from phi some multi swap operator(3 rd ingredient),
+    # define isometry T from phi
+    # some multi swap operator(3 rd ingredient),
     #
     # can be replaced with multiple swap gates S define W from S and T  (36)
 
     # H = A/d, d is the d-sparse Hermitian matrix
     #
 
-    # Call W() to define the quantum walk (13)
+    # Call walk() to define the quantum walk (13)
 
     # LCU
     # Now we have Chebyshev series
@@ -52,11 +103,6 @@ def circuit(A, f):
 
 
     return qml.states()
-
-def W(_lambda: float,  ):
-    # define coeff
-    # define T, and U
-    pass
 
 # Initialize parameters
 A = [[0., 1.], [1., 0.]]
